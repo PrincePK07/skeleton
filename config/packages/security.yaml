@@ -9,26 +9,34 @@ security:
         app_user_provider:
             entity:
                 class: App\Entity\User
-                property: username
+                property: email
     firewalls:
         dev:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         register:
             pattern:  ^/register
-            stateless: true    
-        login:
-            pattern:  ^/login
-            stateless: true
-            json_login:
-                check_path: /login_check
-                success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
-        api:
-            pattern:  ^/api/
+            stateless: true      
+        api_auth:
+            pattern:  ^/api/auth/
             stateless: true
             provider: app_user_provider
             jwt: ~ 
+        api:
+            pattern:  ^/api
+            stateless: true
+            entry_point: jwt
+            provider: app_user_provider
+            jwt: ~
+            json_login:
+                check_path: /api/login_check
+                username_path: email
+                password_path: password
+                success_handler: lexik_jwt_authentication.handler.authentication_success
+                failure_handler: lexik_jwt_authentication.handler.authentication_failure      
+            custom_authenticator: App\Security\VerifiedUserAuthenticator
+            refresh_jwt:
+                check_path: /api/token/refresh # or, you may use the `api_refresh_token` route name    
         main:
             lazy: true
             provider: app_user_provider
@@ -44,9 +52,10 @@ security:
     access_control:
         # - { path: ^/admin, roles: ROLE_ADMIN }
         # - { path: ^/profile, roles: ROLE_USER }
-          - { path: ^/login, roles: PUBLIC_ACCESS }
+          - { path: ^/api/login_check, roles: PUBLIC_ACCESS }
           - { path: ^/register, roles: PUBLIC_ACCESS  }
-          - { path: ^/api/, roles: IS_AUTHENTICATED_FULLY }
+          - { path: ^/api/token/refresh, roles: IS_AUTHENTICATED_FULLY }
+          - { path: ^/api/auth/, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
     security:

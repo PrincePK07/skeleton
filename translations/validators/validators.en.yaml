@@ -1,0 +1,12 @@
+translate:
+  validation:
+    username_blank: Username cannot be blank.
+    email_blank: Email cannot be blank.
+    password_blank: Password cannot be blank.
+    username_min: Username must be at least 3 characters long.
+    username_max: Username cannot be longer than 255 characters.
+    email: The email is not a valid email.
+    password_min: Password must be at least 6 characters long.
+    password_max: Password cannot be longer than 255 characters.
+
+

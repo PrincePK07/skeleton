@@ -2,26 +2,44 @@
 
 namespace App\Controller;
 
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Entity\User;
+use App\Entity\AccessToken;
+use App\Service\EmailService;
+use ApiPlatform\Annotation\ApiParam;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Entity\User;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Contracts\Translation\TranslatorInterface;
+use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 class AuthController extends AbstractController
 {
+    private $doctrine;
     private $passwordHasher;
+    private $emailService;
 
-    public function __construct(UserPasswordHasherInterface $passwordHasher)
-    {
+    private $translator;
+
+    public function __construct(
+        UserPasswordHasherInterface $passwordHasher,
+        EmailService $emailService,
+        TranslatorInterface $translator,
+        EntityManagerInterface $doctrine
+    ) {
         $this->passwordHasher = $passwordHasher;
+        $this->emailService = $emailService;
+        $this->translator = $translator;
+        $this->doctrine = $doctrine;
     }
+
     #[Route('/register', name: 'register', methods: ['POST'], defaults: [
         '_api_resource_class' => User::class,
         '_api_item_operation_name' => 'register'
     ])]
+
     public function register(Request $request, ManagerRegistry $doctrine)
     {
         $em = $doctrine->getManager();
@@ -29,17 +47,34 @@ class AuthController extends AbstractController
         $username = $data['username'];
         $password = $data['password'];
 
+        $this->doctrine->getConnection()->beginTransaction();
 
-        $user = new User($username);
-        $user->setPassword($this->passwordHasher->hashPassword($user, $password));
-        $user->setEmail($data['email']);
-        $user->setPhone($data['phone']);
-        $user->setPhone($data['phone']);
-        $user->setRoles($data['roles'] ?? []);
-        $em->persist($user);
-        $em->flush();
+        try {
+            $user = new User($username);
+            $user->setPassword($this->passwordHasher->hashPassword($user, $password));
+            $user->setEmail($data['email']);
+            $user->setPhone($data['phone']);
+            $user->setPhone($data['phone']);
+            $user->setRoles($data['roles'] ?? []);
+            // Generate and associate access token with the user
+            $accessToken = new AccessToken($user);
+            $accessToken->setTokenType('registration');
+            $em->persist($accessToken);
 
-        return new Response(sprintf('User %s successfully created', $user->getUsername()));
+            // Persist the user and access token
+            $em->persist($user);
+            $em->flush();
+
+            $this->emailService->sendRegistrationToken($user, $accessToken);
+            $this->doctrine->getConnection()->commit();
+            $message = $this->translator->trans('translate.response_success.register');
+            return new Response($message);
+        } catch (\Exception $e) {
+            $this->doctrine->getConnection()->rollBack();
+            $error = $this->translator->trans('translate.response_error.register');
+            return new Response($error, 500);
+        }
+        // Send email with the generated token
     }
 
     public function api()

@@ -2,12 +2,17 @@ controllers:
     resource:
         path: ../src/Controller/
         namespace: App\Controller
-    type: attribute   
+    type: attribute 
+api_refresh_token:
+    path: /api/token/refresh
+    methods:  [POST] 
 api:
-    path: /api/
+    path: /api/login_check
+    methods:  [POST]          
+api_auth:
+    path: /api/auth/
     controller: App\Controller\AuthController::api
-login_check:
-    path:     /login_check
-    methods:  [POST]
+
+
 
 
